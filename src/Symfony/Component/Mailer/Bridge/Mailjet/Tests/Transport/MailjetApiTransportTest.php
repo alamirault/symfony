@@ -3,16 +3,14 @@
 namespace Symfony\Component\Mailer\Bridge\Mailjet\Tests\Transport;
 
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpClient\Exception\JsonException;
-use Symfony\Component\HttpClient\Exception\TimeoutException;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\Mailer\Bridge\Mailjet\Transport\MailjetApiTransport;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\HttpTransportException;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
 
 class MailjetApiTransportTest extends TestCase
 {
@@ -93,35 +91,21 @@ class MailjetApiTransportTest extends TestCase
 
     public function testDoSendApiSuccess()
     {
-        $responseStub = $this->createMock(ResponseInterface::class);
-        $responseStub
-            ->expects(self::once())
-            ->method('getStatusCode')
-            ->willReturn(200);
-        $responseStub
-            ->expects(self::once())
-            ->method('toArray')
-            ->with(false)
-            ->willReturn([
-                'Messages' => [
-                    'foo' => 'bar',
-                ],
-            ]);
-        $responseStub
-            ->expects(self::once())
-            ->method('getHeaders')
-            ->with(false)
-            ->willReturn([
-                'x-mj-request-guid' => ['baz'],
-            ]);
+        $json = json_encode([
+            'Messages' => [
+                'foo' => 'bar',
+            ],
+        ]);
 
-        $clientStub = $this->createMock(HttpClientInterface::class);
-        $clientStub
-            ->expects(self::once())
-            ->method('request')
-            ->willReturn($responseStub);
+        $responseHeaders = [
+            'x-mj-request-guid' => ['baz'],
+        ];
 
-        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $clientStub);
+        $response = new MockResponse($json, ['response_headers' => $responseHeaders]);
+
+        $client = new MockHttpClient($response);
+
+        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $client);
         $method = new \ReflectionMethod(MailjetApiTransport::class, 'doSendApi');
         $method->setAccessible(true);
 
@@ -133,35 +117,16 @@ class MailjetApiTransportTest extends TestCase
             ->expects(self::once())
             ->method('setMessageId');
 
-        $response = $method->invoke($transport, $sentMessage, $email, $envelope);
-
-        $this->assertSame($responseStub, $response);
+        $method->invoke($transport, $sentMessage, $email, $envelope);
     }
 
     public function testDoSendApiWithDecodingException()
     {
-        $responseStub = $this->createMock(ResponseInterface::class);
-        $responseStub
-            ->expects(self::once())
-            ->method('getStatusCode')
-            ->willReturn(200);
-        $responseStub
-            ->expects(self::once())
-            ->method('getContent')
-            ->willReturn('cannot-be-decoded');
-        $responseStub
-            ->expects(self::once())
-            ->method('toArray')
-            ->with(false)
-            ->willThrowException(new JsonException('invalid-json'));
+        $response = new MockResponse('cannot-be-decoded');
 
-        $clientStub = $this->createMock(HttpClientInterface::class);
-        $clientStub
-            ->expects(self::once())
-            ->method('request')
-            ->willReturn($responseStub);
+        $client = new MockHttpClient($response);
 
-        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $clientStub);
+        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $client);
         $method = new \ReflectionMethod(MailjetApiTransport::class, 'doSendApi');
         $method->setAccessible(true);
 
@@ -171,26 +136,18 @@ class MailjetApiTransportTest extends TestCase
         $sentMessage = $this->createMock(SentMessage::class);
 
         $this->expectExceptionObject(
-            new HttpTransportException('Unable to send an email: "cannot-be-decoded" (code 200).', $responseStub)
+            new HttpTransportException('Unable to send an email: "cannot-be-decoded" (code 200).', $response)
         );
         $method->invoke($transport, $sentMessage, $email, $envelope);
     }
 
     public function testDoSendApiWithTransportException()
     {
-        $responseStub = $this->createMock(ResponseInterface::class);
-        $responseStub
-            ->expects(self::once())
-            ->method('getStatusCode')
-            ->willThrowException(new TimeoutException());
+        $response = new MockResponse('', ['error' => 'foo']);
 
-        $clientStub = $this->createMock(HttpClientInterface::class);
-        $clientStub
-            ->expects(self::once())
-            ->method('request')
-            ->willReturn($responseStub);
+        $client = new MockHttpClient($response);
 
-        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $clientStub);
+        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $client);
         $method = new \ReflectionMethod(MailjetApiTransport::class, 'doSendApi');
         $method->setAccessible(true);
 
@@ -200,46 +157,35 @@ class MailjetApiTransportTest extends TestCase
         $sentMessage = $this->createMock(SentMessage::class);
 
         $this->expectExceptionObject(
-            new HttpTransportException('Could not reach the remote Mailjet server.', $responseStub)
+            new HttpTransportException('Could not reach the remote Mailjet server.', $response)
         );
         $method->invoke($transport, $sentMessage, $email, $envelope);
     }
 
     public function testDoSendApiWithBadRequestResponse()
     {
-        $responseStub = $this->createMock(ResponseInterface::class);
-        $responseStub
-            ->expects(self::once())
-            ->method('getStatusCode')
-            ->willReturn(400);
-        $responseStub
-            ->expects(self::once())
-            ->method('toArray')
-            ->with(false)
-            ->willReturn([
-                'Messages' => [
-                    [
-                        'Errors' => [
-                            [
-                                'ErrorIdentifier' => '8e28ac9c-1fd7-41ad-825f-1d60bc459189',
-                                'ErrorCode' => 'mj-0005',
-                                'StatusCode' => 400,
-                                'ErrorMessage' => 'The To is mandatory but missing from the input',
-                                'ErrorRelatedTo' => ['To'],
-                            ],
+        $json = json_encode([
+            'Messages' => [
+                [
+                    'Errors' => [
+                        [
+                            'ErrorIdentifier' => '8e28ac9c-1fd7-41ad-825f-1d60bc459189',
+                            'ErrorCode' => 'mj-0005',
+                            'StatusCode' => 400,
+                            'ErrorMessage' => 'The To is mandatory but missing from the input',
+                            'ErrorRelatedTo' => ['To'],
                         ],
-                        'Status' => 'error',
                     ],
+                    'Status' => 'error',
                 ],
-            ]);
+            ],
+        ]);
 
-        $clientStub = $this->createMock(HttpClientInterface::class);
-        $clientStub
-            ->expects(self::once())
-            ->method('request')
-            ->willReturn($responseStub);
+        $response = new MockResponse($json, ['http_code' => 400]);
 
-        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $clientStub);
+        $client = new MockHttpClient($response);
+
+        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $client);
         $method = new \ReflectionMethod(MailjetApiTransport::class, 'doSendApi');
         $method->setAccessible(true);
 
@@ -249,38 +195,18 @@ class MailjetApiTransportTest extends TestCase
         $sentMessage = $this->createMock(SentMessage::class);
 
         $this->expectExceptionObject(
-            new HttpTransportException('Unable to send an email: "The To is mandatory but missing from the input" (code 400).', $responseStub)
+            new HttpTransportException('Unable to send an email: "The To is mandatory but missing from the input" (code 400).', $response)
         );
         $method->invoke($transport, $sentMessage, $email, $envelope);
     }
 
     public function testDoSendApiWithNoErrorMessageBadRequestResponse()
     {
-        $responseStub = $this->createMock(ResponseInterface::class);
-        $responseStub
-            ->expects(self::once())
-            ->method('getStatusCode')
-            ->willReturn(400);
-        $responseStub
-            ->expects(self::once())
-            ->method('getContent')
-            ->with(false)
-            ->willReturn('response-content');
-        $responseStub
-            ->expects(self::once())
-            ->method('toArray')
-            ->with(false)
-            ->willReturn([
-                'Message' => 'foo',
-            ]);
+        $response = new MockResponse('response-content', ['http_code' => 400]);
 
-        $clientStub = $this->createMock(HttpClientInterface::class);
-        $clientStub
-            ->expects(self::once())
-            ->method('request')
-            ->willReturn($responseStub);
+        $client = new MockHttpClient($response);
 
-        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $clientStub);
+        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $client);
         $method = new \ReflectionMethod(MailjetApiTransport::class, 'doSendApi');
         $method->setAccessible(true);
 
@@ -290,7 +216,7 @@ class MailjetApiTransportTest extends TestCase
         $sentMessage = $this->createMock(SentMessage::class);
 
         $this->expectExceptionObject(
-            new HttpTransportException('Unable to send an email: "response-content" (code 400).', $responseStub)
+            new HttpTransportException('Unable to send an email: "response-content" (code 400).', $response)
         );
         $method->invoke($transport, $sentMessage, $email, $envelope);
     }
@@ -298,31 +224,15 @@ class MailjetApiTransportTest extends TestCase
     /**
      * @dataProvider getMalformedResponse
      */
-    public function testDoSendApiWithMalformedResponse(array $response)
+    public function testDoSendApiWithMalformedResponse(array $body)
     {
-        $responseStub = $this->createMock(ResponseInterface::class);
-        $responseStub
-            ->expects(self::once())
-            ->method('getStatusCode')
-            ->willReturn(200);
-        $responseStub
-            ->expects(self::once())
-            ->method('toArray')
-            ->with(false)
-            ->willReturn($response);
-        $responseStub
-            ->expects(self::once())
-            ->method('getContent')
-            ->with(false)
-            ->willReturn('response-content');
+        $json = json_encode($body);
 
-        $clientStub = $this->createMock(HttpClientInterface::class);
-        $clientStub
-            ->expects(self::once())
-            ->method('request')
-            ->willReturn($responseStub);
+        $response = new MockResponse($json);
 
-        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $clientStub);
+        $client = new MockHttpClient($response);
+
+        $transport = new MailjetApiTransport(self::USER, self::PASSWORD, $client);
         $method = new \ReflectionMethod(MailjetApiTransport::class, 'doSendApi');
         $method->setAccessible(true);
 
@@ -332,7 +242,7 @@ class MailjetApiTransportTest extends TestCase
         $sentMessage = $this->createMock(SentMessage::class);
 
         $this->expectExceptionObject(
-            new HttpTransportException('Unable to send an email: "response-content" malformed api response.', $responseStub)
+            new HttpTransportException(sprintf('Unable to send an email: "%s" malformed api response.', $json), $response)
         );
         $method->invoke($transport, $sentMessage, $email, $envelope);
     }
