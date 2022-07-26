@@ -19,6 +19,11 @@ Mailer
 
 * Deprecate the `OhMySMTP` transport, use `MailPace` instead
 
+Messenger
+--------
+
+* Deprecate `MessageHandlerInterface` and `MessageSubscriberInterface`, use the `AsMessageHandler` attribute instead
+
 Security
 --------
 

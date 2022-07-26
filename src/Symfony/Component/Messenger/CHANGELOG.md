@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+6.2
+---
+
+* Deprecate `MessageHandlerInterface` and `MessageSubscriberInterface`, use the `AsMessageHandler` attribute instead
+
 6.1
 ---
 
