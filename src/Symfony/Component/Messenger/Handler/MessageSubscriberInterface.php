@@ -11,6 +11,8 @@
 
 namespace Symfony\Component\Messenger\Handler;
 
+trigger_deprecation('symfony/messenger', '6.2', '"%s" is deprecated, use AsMessageHandler attribute instead.', MessageSubscriberInterface::class);
+
 /**
  * Handlers can implement this interface to handle multiple messages.
  *
