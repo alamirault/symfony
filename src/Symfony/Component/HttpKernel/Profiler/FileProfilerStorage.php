@@ -18,6 +18,8 @@ namespace Symfony\Component\HttpKernel\Profiler;
  */
 class FileProfilerStorage implements ProfilerStorageInterface
 {
+    protected const MAX_RETENTION_DAYS = 1;
+
     /**
      * Folder where profiler data are stored.
      */
@@ -179,8 +181,10 @@ class FileProfilerStorage implements ProfilerStorageInterface
         }
 
         if (!$profileIndexed) {
+
+//            $this->removeOldestProfiles($indexFilename = $this->getIndexFilename());
             // Add to index
-            if (false === $file = fopen($this->getIndexFilename(), 'a')) {
+            if (false === $file = fopen($indexFilename = $this->getIndexFilename(), 'a')) {
                 return false;
             }
 
@@ -197,6 +201,84 @@ class FileProfilerStorage implements ProfilerStorageInterface
         }
 
         return true;
+    }
+
+    // TODO TODO continues, renamming + tests + drop files
+    public function removeOldestProfiles(string $indexFilename)
+    {
+        $minimalProfileTime = (new \DateTime())
+            ->modify(sprintf('-%d days', self::MAX_RETENTION_DAYS))
+            ->getTimestamp();
+
+        $handle = fopen($indexFilename, 'r');
+
+        $tmpIndexFileName = $indexFilename.'.tmp';
+        $beforeTime = true;
+        $atLeastOneProfileBeforeTime = false;
+        while ($beforeTime && $line = fgets($handle)) {
+            $csv = str_getcsv($line);
+            $profileTime = (int) $csv[4];
+
+            if ($profileTime > $minimalProfileTime) {
+                $beforeTime = false;
+                file_put_contents($tmpIndexFileName, $line);
+            } else {
+                $atLeastOneProfileBeforeTime = true;
+            }
+        }
+
+        if ($atLeastOneProfileBeforeTime) {
+            file_put_contents($tmpIndexFileName, stream_get_contents($handle), FILE_APPEND);
+            unlink($indexFilename);
+            rename($tmpIndexFileName, $indexFilename);
+        } else {
+            fclose($handle);
+        }
+
+
+        // TODO TODO make it only once
+//        $dateOk = false;
+//        if ($handle = fopen($indexFilename, 'c+')) {
+////            if(!flock($handle,LOCK_EX)){fclose($handle);}
+//            $offset = 0;
+//            $len = filesize($indexFilename);
+//            while (($line = fgets($handle)) !== false) {
+//                if (false === $dateOk) {
+//                    $csv = str_getcsv($line);
+//                    $time = (int) $csv[4];
+//
+//                    if ($time > $removeBeforeDate) {
+//                        $dateOk = true;
+//                    } else {
+//                        dump('REMOVE LINE: '.$line);
+//                        $offset += strlen($line);
+//                        continue;
+//                    }
+//                }
+//                $pos = ftell($handle);
+////                $fseek = $pos - strlen($line) - $offset;
+//                $fseek = $offset;
+//                dump(sprintf('La position finale vaut %s octets', $fseek));
+//                dump('On met la ligne: ', $line);
+//                dump(sprintf('La position finale vaut %s octets', $pos));
+//
+//                fseek($handle, $fseek);
+//                fputs($handle, $line);
+//                fseek($handle, $pos);
+//            }
+//
+//            fflush($handle);
+//            ftruncate($handle, ($len - $offset));
+////            flock($handle,LOCK_UN);
+//            fclose($handle);
+//        }
+    }
+
+    public function yoloRemove(string $token)
+    {
+        if (file_exists($filename = $this->getFilename($token))) {
+            unlink($filename);
+        }
     }
 
     /**

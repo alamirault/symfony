@@ -32,7 +32,7 @@ class FileProfilerStorageTest extends TestCase
 
     protected function tearDown(): void
     {
-        self::cleanDir();
+//        self::cleanDir();
     }
 
     public function testStore()
@@ -342,6 +342,47 @@ class FileProfilerStorageTest extends TestCase
             $this->assertEquals('http://foo.bar/'.$i, $row[3]);
         }
         $this->assertFalse(fgetcsv($handle));
+    }
+
+    public function testYolo()
+    {
+        $iteration = 3;
+
+        $threeDaysAgo = new \DateTime('now');
+        $threeDaysAgo->modify('-3 days');
+        $profile = new Profile('token0');
+        $profile->setIp('127.0.0.0');
+        $profile->setUrl('http://foo.bar/0');
+        $profile->setTime($threeDaysAgo->getTimestamp());
+        $this->storage->write($profile);
+
+        $towDaysAgo = new \DateTime('now');
+        $towDaysAgo->modify('-2 days');
+        $profile = new Profile('token1');
+        $profile->setIp('127.0.0.1');
+        $profile->setUrl('http://foo.bar/1');
+        $profile->setTime($towDaysAgo->getTimestamp());
+        $this->storage->write($profile);
+
+        $oneHourAgo = new \DateTime('now');
+        $oneHourAgo->modify('-1 hour');
+        $profile = new Profile('token2');
+        $profile->setIp('127.0.0.2');
+        $profile->setUrl('http://foo.bar/2');
+        $profile->setTime($oneHourAgo->getTimestamp());
+        $this->storage->write($profile);
+
+        dump(file_get_contents($this->tmpDir.'/index.csv'));
+
+        $this->storage->removeOldestProfiles($this->tmpDir.'/index.csv');
+
+
+        dump("Fichier final");
+        dump(file_get_contents($this->tmpDir.'/index.csv'));
+
+//        $this->storage->yoloRemove('token0');
+//        $this->storage->yoloRemove('token0');
+
     }
 
     public function testReadLineFromFile()
