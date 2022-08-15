@@ -1085,4 +1085,19 @@ class DateTypeTest extends BaseTypeTest
 
         $this->assertSame('14/01/2018', $form->getData());
     }
+
+    public function testSubmitDateBeforeBeginningOfGregorianCalendar()
+    {
+        if (PHP_INT_SIZE < 8) {
+            $this->markTestSkipped('Parsing three digits years requires a 64bit PHP.');
+        }
+
+        $form = $this->factory->create(static::TESTED_TYPE, null, [
+            'widget' => 'single_text',
+        ]);
+        $form->submit('950-12-19');
+
+        $this->assertSame('0950-12-19', $form->getData()->format('Y-m-d'));
+        $this->assertSame('0950-12-19', $form->getViewData());
+    }
 }
