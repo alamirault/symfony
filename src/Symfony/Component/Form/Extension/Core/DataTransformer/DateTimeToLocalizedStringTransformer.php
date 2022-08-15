@@ -211,11 +211,6 @@ class DateTimeToLocalizedStringTransformer extends BaseDateTimeTransformer
     {
         $timezone = $this->isPatternDateOnly() ? 'UTC' : $this->inputTimezone;
 
-        $dateFormatter = new \IntlDateFormatter(\Locale::getDefault(), \IntlDateFormatter::MEDIUM, \IntlDateFormatter::NONE, new \DateTimeZone($timezone), \IntlDateFormatter::GREGORIAN, 'yyyy-MM-dd HH:mm:ss');
-        $gregorianCalendar = \IntlGregorianCalendar::createInstance(new \DateTimeZone($timezone), \Locale::getDefault());
-        $gregorianCalendar->setGregorianChange(PHP_INT_MIN);
-        $dateFormatter->setCalendar($gregorianCalendar);
-        
-        return $dateFormatter;
+        return new \IntlDateFormatter(\Locale::getDefault(), \IntlDateFormatter::FULL, \IntlDateFormatter::FULL, new \DateTimeZone($timezone), \IntlDateFormatter::GREGORIAN, 'yyyy-MM-dd HH:mm:ss');
     }
 }
