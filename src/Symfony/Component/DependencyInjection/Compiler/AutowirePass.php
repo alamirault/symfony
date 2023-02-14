@@ -292,7 +292,7 @@ class AutowirePass extends AbstractRecursivePass
             }
 
             if (!$type) {
-                if (isset($arguments[$index])) {
+                if (\array_key_exists($index, $arguments)) {
                     continue;
                 }
 
