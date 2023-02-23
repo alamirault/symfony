@@ -32,6 +32,10 @@ class KernelEvent extends Event
      */
     public function __construct(HttpKernelInterface $kernel, Request $request, ?int $requestType)
     {
+        if (null === $requestType) {
+            trigger_deprecation('symfony/http-kernel', '6.3', 'Passing null as $requestType to "%s()" is deprecated, pass HttpKernelInterface::MAIN_REQUEST or HttpKernelInterface::SUB_REQUEST instead.', __METHOD__);
+        }
+
         $this->kernel = $kernel;
         $this->request = $request;
         $this->requestType = $requestType;

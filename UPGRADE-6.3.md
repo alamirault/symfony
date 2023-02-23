@@ -47,6 +47,7 @@ HttpKernel
 ----------
 
  * Deprecate parameters `container.dumper.inline_factories` and `container.dumper.inline_class_loader`, use `.container.dumper.inline_factories` and `.container.dumper.inline_class_loader` instead
+ * Deprecate passing `null` as `$requestType` to `KernelEvent`, pass `HttpKernelInterface::MAIN_REQUEST` or `HttpKernelInterface::SUB_REQUEST` instead.
 
 Lock
 ----

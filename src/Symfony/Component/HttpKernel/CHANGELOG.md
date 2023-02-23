@@ -10,6 +10,7 @@ CHANGELOG
  * Use an instance of `Psr\Clock\ClockInterface` to generate the current date time in `DateTimeValueResolver`
  * Add `#[WithLogLevel]` for defining log levels for exceptions
  * Add `skip_response_headers` to the `HttpCache` options
+ * Deprecate passing `null` as `$requestType` to `KernelEvent`, pass `HttpKernelInterface::MAIN_REQUEST` or `HttpKernelInterface::SUB_REQUEST` instead.
 
 6.2
 ---
